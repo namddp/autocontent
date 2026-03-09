@@ -1,0 +1,455 @@
+// FamilyMaid Internal SaaS — Prisma Schema
+// Phản ánh nghiệp vụ thực tế: Ca dịch vụ bảo mẫu/giúp việc gia đình
+// CTV = Cộng Tác Viên (bảo mẫu) — không phải nhân viên chính thức
+// Sales = Nhân viên tư vấn/kinh doanh
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AUTH & USERS (nhân viên nội bộ)
+// ═══════════════════════════════════════════════════════════════
+
+enum Role {
+  ADMIN // Quản lý toàn bộ
+  MANAGER // Quản lý ca, xem báo cáo
+  SALES // Nhân viên kinh doanh (Luyến, Thảo, Hương, Phụng...)
+  STAFF // Nhân viên văn phòng
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  fullName     String   @map("full_name")
+  displayName  String?  @map("display_name") // tên hiển thị ngắn (Luyến, Thảo...)
+  phone        String?
+  role         Role     @default(STAFF)
+  isActive     Boolean  @default(true) @map("is_active")
+  refreshToken String?  @map("refresh_token")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  handledCases    ServiceCase[]     @relation("SalesHandler") // ca do sales này nhận
+  referredCtv     Ctv[]             @relation("CtvReferrer") // CTV do user này giới thiệu
+  commissions     SalesCommission[]
+  activityLogs    CaseActivity[]
+  monthlySalaries MonthlySalary[]
+  interactions    CustomerInteraction[] @relation("UserInteractions")
+
+  @@map("users")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// KHÁCH HÀNG
+// ═══════════════════════════════════════════════════════════════
+
+enum LeadSource {
+  FACEBOOK // Từ Facebook
+  ZALO // Từ Zalo
+  WEBSITE // Từ website
+  REFERRAL // Giới thiệu
+  OTHER // Khác
+}
+
+// Khách hàng (có thể có nhiều ca)
+model Customer {
+  id       String     @id @default(cuid())
+  fullName String     @map("full_name") // Tên khách hàng
+  phone    String?
+  email    String?
+  address  String?
+  district String? // Quận/huyện
+  city     String     @default("TPHCM") // TPHCM | Hà Nội | ...
+  source   LeadSource @default(OTHER)
+  notes    String?
+
+  // Cached stats (updated by triggers/service)
+  totalCases Int       @default(0) @map("total_cases")
+  totalSpent Decimal   @default(0) @map("total_spent") @db.Decimal(15, 0)
+  lastCaseAt DateTime? @map("last_case_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  cases        ServiceCase[]
+  interactions CustomerInteraction[]
+
+  @@map("customers")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CTV — CỘNG TÁC VIÊN (bảo mẫu, không phải nhân viên)
+// ═══════════════════════════════════════════════════════════════
+
+enum CtvStatus {
+  AVAILABLE // Đang rảnh, sẵn sàng nhận ca
+  WORKING // Đang làm ca
+  UNAVAILABLE // Tạm nghỉ
+  INACTIVE // Ngưng hợp tác
+}
+
+model Ctv {
+  id               String    @id @default(cuid())
+  fullName         String    @map("full_name")
+  phone            String?
+  nationalId       String?   @map("national_id") // CCCD
+  dateOfBirth      DateTime? @map("date_of_birth")
+  hometown         String? // Quê quán
+  areaPreference   String?   @map("area_preference") // "TPHCM" | "HN" | "both"
+  yearsExperience  Int       @default(0) @map("years_experience")
+  hasCertificate   Boolean   @default(false) @map("has_certificate") // có bằng cấp
+  bio              String?
+  avatarUrl        String?   @map("avatar_url")
+  status           CtvStatus @default(AVAILABLE)
+  avgRating        Decimal   @default(0) @map("avg_rating") @db.Decimal(3, 2)
+  totalReviews     Int       @default(0) @map("total_reviews")
+  referredById     String?   @map("referred_by_id") // Sales giới thiệu CTV này
+  taxRate          Decimal?  @map("tax_rate") @db.Decimal(5, 2) // % thuế riêng mỗi CTV
+  bankAccount      String?   @map("bank_account") // Số TK ngân hàng
+  bankName         String?   @map("bank_name") // Tên ngân hàng
+  emergencyContact String?   @map("emergency_contact")
+  notes            String?
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  referredBy      User?               @relation("CtvReferrer", fields: [referredById], references: [id])
+  skills          CtvSkill[]
+  cases           ServiceCase[] // legacy single-CTV (backward compat)
+  caseAssignments CaseCtvAssignment[] // multi-CTV assignments
+  reviews         CtvReview[]
+  availabilities  CtvAvailability[]
+
+  @@map("ctvs")
+}
+
+model Skill {
+  id       String @id @default(cuid())
+  name     String @unique // "Chăm chuyên nghiệp", "Rèn EASY", "Nấu ăn dặm", "Tắm bé"
+  category String // "childcare" | "newborn" | "cooking" | "elderly"
+
+  ctvSkills CtvSkill[]
+
+  @@map("skills")
+}
+
+model CtvSkill {
+  ctvId       String @map("ctv_id")
+  skillId     String @map("skill_id")
+  proficiency Int    @default(3) // 1-5
+
+  ctv   Ctv   @relation(fields: [ctvId], references: [id], onDelete: Cascade)
+  skill Skill @relation(fields: [skillId], references: [id])
+
+  @@id([ctvId, skillId])
+  @@map("ctv_skills")
+}
+
+model CtvAvailability {
+  id        String @id @default(cuid())
+  ctvId     String @map("ctv_id")
+  dayOfWeek Int // 0=CN, 1=T2 ... 6=T7
+  startHour Int    @map("start_hour")
+  endHour   Int    @map("end_hour")
+
+  ctv Ctv @relation(fields: [ctvId], references: [id], onDelete: Cascade)
+
+  @@map("ctv_availabilities")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CA DỊCH VỤ — đơn vị kinh doanh cơ bản của FamilyMaid
+// ═══════════════════════════════════════════════════════════════
+
+// Tình trạng ca — phản ánh đúng quy trình thực tế từ Excel
+enum CaseStatus {
+  CONSIDERING // Còn suy nghĩ
+  CV_SENT // Gửi CV nhưng chưa phản hồi
+  DEPOSIT_CONFIRMED // Đã chốt cọc
+  ASSIGNED // Đã giao (cô đã nhận, chờ bắt đầu)
+  IN_PROGRESS // Đang làm
+  COMPLETED // Đã xong
+  CANCELLED // Đã hủy
+}
+
+// Loại ca — từ thực tế file Excel
+enum CaseType {
+  DAY_SINGLE // Ca ngày lẻ
+  NIGHT_SINGLE // Ca đêm lẻ
+  FULLDAY_SINGLE // Ca 24/24 lẻ
+  DAY_MONTHLY // Ca tháng ngày
+  NIGHT_MONTHLY // Ca tháng đêm
+  FULLDAY_MONTHLY // Ca 24/24 tháng
+  BATH_BABY // Tắm bé
+  POSTPARTUM // Phục hồi chuyên sâu mẹ và bé
+  TET // Ca Tết (giá đặc biệt)
+  OTHER // Khác
+}
+
+// Loại dịch vụ / bảng giá
+enum ServiceType {
+  DV1 // Dịch vụ 1 (bảng giá 1)
+  DV2 // Dịch vụ 2 (bảng giá 2)
+  OLD_PRICE // Bảng giá cũ
+  NEW_PRICE // Bảng giá mới
+  MOTHER_CARE // Chăm mẹ
+  BATH_BABY // Tắm bé
+}
+
+// Tình trạng thu tiền
+enum PaymentStatus {
+  UNPAID // Chưa thu
+  DEPOSIT_PAID // Đã thu cọc
+  PAID // Đã thu đủ
+}
+
+// Ca dịch vụ — record chính của mỗi hợp đồng
+model ServiceCase {
+  id       String  @id @default(cuid())
+  caseCode String? @unique @map("case_code") // Số HĐ (01, 02, ...)
+
+  // Khách hàng
+  customerId String  @map("customer_id")
+  babyInfo   String? @map("baby_info") // Thông tin bé (tuổi, tình trạng)
+
+  // Thông tin ca
+  caseType     CaseType    @map("case_type")
+  serviceType  ServiceType @default(DV2) @map("service_type")
+  workingHours String?     @map("working_hours") // "8h - 19h", "24/24", "22h-6h"
+  requirements String? // Yêu cầu ca (Chăm chuyên nghiệp, Rèn EASY...)
+  address      String? // Địa chỉ làm việc cụ thể
+  area         String? // Khu vực: TPHCM | Hà Nội | ...
+  startDate    DateTime?   @map("start_date")
+  endDate      DateTime?   @map("end_date")
+  status       CaseStatus  @default(CONSIDERING)
+
+  // Sales phụ trách ca này
+  salesId String? @map("sales_id")
+
+  // CTV được giao
+  ctvId           String? @map("ctv_id")
+  ctvReferralNote String? @map("ctv_referral_note") // Nguồn CTV (ai giới thiệu cô)
+
+  // Tài chính
+  contractValue  Decimal? @map("contract_value") @db.Decimal(15, 0) // Giá trị HĐ (đã bao gồm VAT nếu có)
+  serviceFeePre  Decimal? @map("service_fee_pre") @db.Decimal(15, 0) // Phí DV trước VAT
+  vatAmount      Decimal? @map("vat_amount") @db.Decimal(15, 0) // Tiền VAT
+  ctvPayout      Decimal? @map("ctv_payout") @db.Decimal(15, 0) // Trả CTV (tổng)
+  ctvTax         Decimal? @map("ctv_tax") @db.Decimal(15, 0) // Thuế CTV
+  profit         Decimal? @db.Decimal(15, 0) // Lợi nhuận = contractValue - ctvPayout
+  commissionRate Decimal? @map("commission_rate") @db.Decimal(5, 2) // % hoa hồng (custom per case)
+
+  // Thu tiền
+  paymentStatus PaymentStatus @default(UNPAID) @map("payment_status")
+  depositAmount Decimal?      @map("deposit_amount") @db.Decimal(15, 0) // Tiền cọc
+  depositDate   DateTime?     @map("deposit_date") // Ngày nhận cọc
+  paidAt        DateTime?     @map("paid_at")
+  paymentNote   String?       @map("payment_note")
+
+  // Thanh toán CTV — chia 2 đợt/tháng
+  ctvPaymentPaid  Boolean   @default(false) @map("ctv_payment_paid") // legacy / tổng
+  ctvPayment1Paid Boolean   @default(false) @map("ctv_payment_1_paid") // Đợt 1 (~15th)
+  ctvPayment1Date DateTime? @map("ctv_payment_1_date")
+  ctvPayment2Paid Boolean   @default(false) @map("ctv_payment_2_paid") // Đợt 2 (~cuối tháng)
+  ctvPayment2Date DateTime? @map("ctv_payment_2_date")
+
+  // Hợp đồng / hóa đơn
+  invoiceNumber   String? @map("invoice_number") // Số hóa đơn
+  hasVat          Boolean @default(false) @map("has_vat") // Có xuất VAT không
+  invoiceFileUrl  String? @map("invoice_file_url") // File hóa đơn xuất
+  contractFileUrl String? @map("contract_file_url") // HĐ khách
+  ctvContractUrl  String? @map("ctv_contract_url") // HĐ cô CTV
+  ctvAnnexUrl     String? @map("ctv_annex_url") // Phụ lục HĐ cô
+
+  // Metadata
+  notes     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  customer       Customer            @relation(fields: [customerId], references: [id])
+  sales          User?               @relation("SalesHandler", fields: [salesId], references: [id])
+  ctv            Ctv?                @relation(fields: [ctvId], references: [id]) // legacy single-CTV
+  ctvAssignments CaseCtvAssignment[] // multi-CTV assignments
+  commissions    SalesCommission[]
+  activities     CaseActivity[]
+  reviews        CtvReview[]
+
+  @@index([status])
+  @@index([startDate, endDate])
+  @@index([salesId])
+  @@index([ctvId])
+  @@map("service_cases")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MULTI-CTV ASSIGNMENT — 1 ca có thể nhiều CTV
+// ═══════════════════════════════════════════════════════════════
+
+model CaseCtvAssignment {
+  id           String    @id @default(cuid())
+  caseId       String    @map("case_id")
+  ctvId        String    @map("ctv_id")
+  role         String    @default("PRIMARY") // "PRIMARY" | "SUPPORT" | "REPLACEMENT"
+  payoutAmount Decimal?  @map("payout_amount") @db.Decimal(15, 0) // Trả riêng cho CTV này
+  startDate    DateTime? @map("start_date")
+  endDate      DateTime? @map("end_date")
+  notes        String?
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  case ServiceCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  ctv  Ctv         @relation(fields: [ctvId], references: [id])
+
+  @@unique([caseId, ctvId])
+  @@index([ctvId])
+  @@map("case_ctv_assignments")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HOA HỒNG SALES
+// ═══════════════════════════════════════════════════════════════
+
+// Hoa hồng của từng sales cho từng ca
+// Một ca có thể chia hoa hồng cho nhiều sales (VD: Luyến 15% + Thảo 7%)
+model SalesCommission {
+  id         String   @id @default(cuid())
+  caseId     String   @map("case_id")
+  userId     String   @map("user_id") // Sales nhận hoa hồng
+  percentage Decimal  @db.Decimal(5, 2) // % hoa hồng
+  amount     Decimal? @db.Decimal(15, 0) // Số tiền thực nhận
+  type       String   @default("CASE") // "CASE" | "CTV_REFERRAL"
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  case ServiceCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  user User        @relation(fields: [userId], references: [id])
+
+  @@unique([caseId, userId, type])
+  @@map("sales_commissions")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ACTIVITY LOG — lịch sử thay đổi trạng thái ca
+// ═══════════════════════════════════════════════════════════════
+
+model CaseActivity {
+  id        String   @id @default(cuid())
+  caseId    String   @map("case_id")
+  userId    String   @map("user_id")
+  action    String // "STATUS_CHANGED", "CTV_ASSIGNED", "PAYMENT_RECEIVED", "NOTE_ADDED"
+  oldValue  String?  @map("old_value")
+  newValue  String?  @map("new_value")
+  note      String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  case ServiceCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  user User        @relation(fields: [userId], references: [id])
+
+  @@index([caseId])
+  @@map("case_activities")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ĐÁNH GIÁ CTV
+// ═══════════════════════════════════════════════════════════════
+
+model CtvReview {
+  id        String   @id @default(cuid())
+  ctvId     String   @map("ctv_id")
+  caseId    String   @map("case_id")
+  rating    Int // 1-5
+  comment   String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  ctv  Ctv         @relation(fields: [ctvId], references: [id], onDelete: Cascade)
+  case ServiceCase @relation(fields: [caseId], references: [id])
+
+  @@unique([ctvId, caseId])
+  @@map("ctv_reviews")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// LƯƠNG NHÂN VIÊN (Sales)
+// ═══════════════════════════════════════════════════════════════
+
+// Phiếu lương tháng cho từng nhân viên Sales
+model MonthlySalary {
+  id                String   @id @default(cuid())
+  userId            String   @map("user_id")
+  month             Int // 1-12
+  year              Int
+  baseSalary        Decimal  @default(0) @map("base_salary") @db.Decimal(15, 0)
+  responsibilityPay Decimal  @default(0) @map("responsibility_pay") @db.Decimal(15, 0) // Trách nhiệm
+  workDays          Int      @default(0) @map("work_days")
+  revenue           Decimal  @default(0) @db.Decimal(15, 0) // Doanh thu tháng
+  caseCount         Int      @default(0) @map("case_count") // Số ca trong tháng
+  kpiTarget         Decimal? @map("kpi_target") @db.Decimal(15, 0)
+  kpiPercentage     Decimal? @map("kpi_percentage") @db.Decimal(5, 2)
+  caseCommission    Decimal  @default(0) @map("case_commission") @db.Decimal(15, 0) // Hoa hồng ca
+  ctvCommission     Decimal  @default(0) @map("ctv_commission") @db.Decimal(15, 0) // Hoa hồng CTV giới thiệu
+  mealAllowance     Decimal  @default(0) @map("meal_allowance") @db.Decimal(15, 0)
+  socialInsurance   Decimal  @default(0) @map("social_insurance") @db.Decimal(15, 0) // BHXH (trừ)
+  bonus             Decimal  @default(0) @db.Decimal(15, 0)
+  totalPay          Decimal  @default(0) @map("total_pay") @db.Decimal(15, 0)
+  notes             String?
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, month, year])
+  @@map("monthly_salaries")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// LỊCH SỬ LIÊN HỆ KHÁCH HÀNG
+// ═══════════════════════════════════════════════════════════════
+
+enum InteractionType {
+  CALL // Gọi điện
+  ZALO // Nhắn Zalo
+  NOTE // Ghi chú nội bộ
+  EMAIL // Email
+  VISIT // Gặp trực tiếp
+}
+
+// Mỗi lần liên hệ/ghi chú cho khách hàng
+model CustomerInteraction {
+  id         String          @id @default(cuid())
+  customerId String          @map("customer_id")
+  userId     String          @map("user_id") // Nhân viên ghi nhận
+  type       InteractionType
+  content    String
+  createdAt  DateTime        @default(now()) @map("created_at")
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  user     User     @relation("UserInteractions", fields: [userId], references: [id])
+
+  @@index([customerId])
+  @@map("customer_interactions")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CẤU HÌNH HỆ THỐNG
+// ═══════════════════════════════════════════════════════════════
+
+// Cấu hình chung — single-row (chỉ 1 record duy nhất)
+model SystemConfig {
+  id                    String   @id @default(cuid())
+  companyName           String   @default("FamilyMaid") @map("company_name")
+  companyPhone          String   @default("") @map("company_phone")
+  companyAddress        String   @default("") @map("company_address")
+  companyLogoUrl        String?  @map("company_logo_url")
+  defaultCommissionRate Float    @default(10) @map("default_commission_rate")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@map("system_config")
+}
