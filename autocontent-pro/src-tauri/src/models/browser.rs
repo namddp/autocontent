@@ -72,3 +72,33 @@ pub enum ProxyRotation {
     Random,
     Sticky,
 }
+
+/// Dynamic proxy provider API source
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum ProxyProvider {
+    KiotProxy,
+    ProxyXoay,
+    #[default]
+    None,
+}
+
+/// Currently active proxy with TTL tracking
+#[derive(Debug, Clone)]
+pub struct ActiveProxy {
+    pub config: ProxyConfig,
+    pub acquired_at: chrono::DateTime<chrono::Utc>,
+    pub ttl_secs: u64,
+}
+
+impl ActiveProxy {
+    pub fn is_expired(&self) -> bool {
+        let elapsed = chrono::Utc::now() - self.acquired_at;
+        elapsed.num_seconds() as u64 >= self.ttl_secs
+    }
+
+    pub fn remaining_secs(&self) -> u64 {
+        let elapsed = (chrono::Utc::now() - self.acquired_at).num_seconds() as u64;
+        self.ttl_secs.saturating_sub(elapsed)
+    }
+}

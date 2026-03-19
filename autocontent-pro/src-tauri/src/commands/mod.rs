@@ -1,6 +1,8 @@
 pub mod accounts;
 pub mod batch;
 pub mod browser;
+pub mod cookies;
+pub mod proxy;
 pub mod drive;
 pub mod subtitle;
 pub mod veo3;

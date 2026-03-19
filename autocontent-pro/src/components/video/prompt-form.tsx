@@ -11,11 +11,23 @@ import {
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Wand2 } from "lucide-react";
+import {
+  GenerationModeSelector,
+  type GenerationMode,
+} from "./generation-mode-selector";
+import { ImageUploadDropzone } from "./image-upload-dropzone";
 
 interface PromptFormProps {
   onGenerate: (
     prompt: string,
-    config: { quality: string; duration: number; mode: string },
+    config: {
+      quality: string;
+      duration: number;
+      mode: string;
+      generationType: string;
+      imagePath: string | null;
+      imagePathEnd: string | null;
+    }
   ) => void;
   isGenerating: boolean;
 }
@@ -25,30 +37,86 @@ export function PromptForm({ onGenerate, isGenerating }: PromptFormProps) {
   const [quality, setQuality] = useState("standard");
   const [duration, setDuration] = useState("8");
   const [mode, setMode] = useState("standard");
+  const [generationType, setGenerationType] =
+    useState<GenerationMode>("text_to_video");
+  const [imagePath, setImagePath] = useState<string | null>(null);
+  const [imagePathEnd, setImagePathEnd] = useState<string | null>(null);
+
+  const canGenerate =
+    generationType === "text_to_video"
+      ? prompt.trim().length > 0
+      : generationType === "image_to_video"
+        ? imagePath && prompt.trim().length > 0
+        : generationType === "clone_video"
+          ? imagePath && imagePathEnd
+          : false;
 
   const handleSubmit = () => {
-    if (!prompt.trim()) return;
+    if (!canGenerate) return;
     onGenerate(prompt, {
       quality,
       duration: parseInt(duration),
       mode,
+      generationType,
+      imagePath,
+      imagePathEnd,
     });
   };
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Video Prompt</CardTitle>
+        <CardTitle>Video Generation</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        <GenerationModeSelector
+          value={generationType}
+          onChange={(m) => {
+            setGenerationType(m);
+            setImagePath(null);
+            setImagePathEnd(null);
+          }}
+        />
+
+        {generationType === "image_to_video" && (
+          <ImageUploadDropzone
+            label="Chọn ảnh nguồn"
+            value={imagePath}
+            onChange={setImagePath}
+          />
+        )}
+
+        {generationType === "clone_video" && (
+          <div className="grid grid-cols-2 gap-3">
+            <ImageUploadDropzone
+              label="Frame đầu tiên"
+              value={imagePath}
+              onChange={setImagePath}
+            />
+            <ImageUploadDropzone
+              label="Frame cuối cùng"
+              value={imagePathEnd}
+              onChange={setImagePathEnd}
+            />
+          </div>
+        )}
+
         <div>
-          <Label htmlFor="prompt">Describe your video</Label>
+          <Label htmlFor="prompt">
+            {generationType === "clone_video"
+              ? "Mô tả chuyển động (tuỳ chọn)"
+              : "Mô tả video"}
+          </Label>
           <Textarea
             id="prompt"
-            placeholder="A cinematic shot of ocean waves at sunset..."
+            placeholder={
+              generationType === "clone_video"
+                ? "Smooth camera pan with cinematic lighting..."
+                : "A cinematic shot of ocean waves at sunset..."
+            }
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            rows={4}
+            rows={3}
             className="mt-1"
           />
         </div>
@@ -96,7 +164,7 @@ export function PromptForm({ onGenerate, isGenerating }: PromptFormProps) {
 
         <Button
           onClick={handleSubmit}
-          disabled={isGenerating || !prompt.trim()}
+          disabled={isGenerating || !canGenerate}
           className="w-full"
         >
           <Wand2 className="mr-2 h-4 w-4" />

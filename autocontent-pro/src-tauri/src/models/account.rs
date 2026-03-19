@@ -7,8 +7,18 @@ pub struct Account {
     pub display_name: Option<String>,
     pub avatar_url: Option<String>,
     pub status: AccountStatus,
+    pub auth_type: AuthType,
     pub last_used: Option<String>,
     pub created_at: String,
+}
+
+/// Authentication method for the account
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum AuthType {
+    #[default]
+    ApiKey,
+    Cookie,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -36,7 +46,28 @@ pub struct OAuthConfig {
     pub scopes: Vec<String>,
 }
 
-/// Safe account info returned to frontend (no tokens)
+/// Cookie-based session credentials for Google Flow
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CookieCredentials {
+    pub cookies: Vec<CookieEntry>,
+    pub captured_at: String,
+    pub expires_at: Option<String>,
+}
+
+/// Single cookie entry for storage
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CookieEntry {
+    pub name: String,
+    pub value: String,
+    pub domain: String,
+    pub path: String,
+    pub expires: Option<f64>,
+    pub http_only: bool,
+    pub secure: bool,
+    pub same_site: String,
+}
+
+/// Safe account info returned to frontend (no tokens/cookies)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AccountInfo {
     pub id: String,
@@ -44,7 +75,9 @@ pub struct AccountInfo {
     pub display_name: Option<String>,
     pub avatar_url: Option<String>,
     pub status: AccountStatus,
+    pub auth_type: AuthType,
     pub has_api_key: bool,
+    pub has_cookies: bool,
     pub last_used: Option<String>,
     pub created_at: String,
 }

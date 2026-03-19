@@ -47,7 +47,9 @@ pub async fn add_account_oauth(
         display_name: user_info.name,
         avatar_url: user_info.picture,
         status: AccountStatus::Active,
+        auth_type: AuthType::ApiKey,
         has_api_key: false,
+        has_cookies: false,
         last_used: None,
         created_at: Utc::now().to_rfc3339(),
     })

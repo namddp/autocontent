@@ -1,10 +1,28 @@
 use serde::{Deserialize, Serialize};
 
+/// Type of video generation: text-only, image-to-video, or clone (first+last frame)
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum VideoGenerationType {
+    #[default]
+    TextToVideo,
+    ImageToVideo,
+    CloneVideo,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GenerationConfig {
+    pub generation_type: VideoGenerationType,
     pub quality: VideoQuality,
     pub duration: u8,
     pub mode: GenerationMode,
+}
+
+/// Inline image data for Gemini API (base64 encoded)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InlineImageData {
+    pub base64_data: String,
+    pub mime_type: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

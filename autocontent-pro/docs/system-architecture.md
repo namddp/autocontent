@@ -1,7 +1,7 @@
 # System Architecture - AutoContent Pro
 
-**Version:** 0.1.0
-**Status:** MVP Complete (All 10 Phases)
+**Version:** 0.15.0
+**Status:** SuperVeo Refactor Complete (Phases 1-15)
 **Last Updated:** March 19, 2026
 
 ## Overview
@@ -11,26 +11,33 @@ AutoContent Pro is a Tauri v2 + Rust + React 19 desktop application for AI-power
 ## Architecture Layers
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                 Frontend (React 19 + UI)                │
-│  (7 Pages: Dashboard, Generate, Accounts, Drive, etc.)  │
-└────────────────────────┬────────────────────────────────┘
-                         │
-┌────────────────────────▼────────────────────────────────┐
-│          Tauri Command Bridge (IPC Layer)               │
-│  (Type-safe command handlers for all operations)        │
-└────────────────────────┬────────────────────────────────┘
-                         │
-┌────────────────────────▼────────────────────────────────┐
-│       Backend Services Layer (Rust)                     │
-│  (Business logic, API clients, system operations)       │
-└────────────────────────┬────────────────────────────────┘
-                         │
-┌────────────────────────▼────────────────────────────────┐
-│         External Services & System APIs                 │
-│  (Google APIs, Gemini, FFmpeg, Whisper, Browser)       │
-└─────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                 Frontend (React 19 + UI)                        │
+│  (7 Pages: Dashboard, Generate, Accounts, Drive, etc.)         │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
+┌──────────────────────────▼──────────────────────────────────────┐
+│          Tauri Command Bridge (IPC Layer)                       │
+│  (Type-safe command handlers, file system, shell execution)    │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
+       ┌───────────────────┼───────────────────┐
+       │                   │                   │
+┌──────▼──────────┐ ┌──────▼──────────┐ ┌────▼─────────────┐
+│ Backend Services│ │ Puppeteer Sidecar│ │ External Services│
+│ Layer (Rust)   │ │ (Node.js)        │ │                  │
+│                │ │                  │ │ • Google APIs    │
+│ • Gemini API   │ │ • Cookie capture │ │ • Gemini VEO3    │
+│ • Video Proc   │ │ • Anti-detect    │ │ • Google Drive   │
+│ • Drive API    │ │ • Fingerprinting │ │ • FFmpeg         │
+│ • Batch Mgmt   │ │ • Stealth plugin │ │ • Whisper.cpp    │
+│ • Proxy API    │ │ • stdin/stdout   │ │ • RealESRGAN     │
+│ • Account Mgmt │ │   JSON IPC       │ │ • Chromium       │
+└────────────────┘ └──────────────────┘ └──────────────────┘
+       (IPC)              (IPC)              (HTTP/Process)
 ```
+
+**Key Addition (v0.15.0):** Puppeteer sidecar handles interactive browser automation and cookie management via stdin/stdout JSON protocol, replacing direct chromiumoxide integration.
 
 ## Core Modules
 
@@ -110,11 +117,13 @@ commands::
 - Handles pausing, resuming, canceling jobs
 - Persistence of job state
 
-#### Browser Automation (`browser_manager.rs`, `proxy.rs`)
-- **chromiumoxide CDP** - Remote debugging protocol for browser control
-- **Anti-detect Browser Setup** - Stealth mode, header spoofing, timezone randomization
-- **Proxy Pool Management** - Rotating proxy support for distributed testing
-- Screenshot capture, interaction automation
+#### Browser Automation & Sidecar Management
+- **Puppeteer Sidecar** (Node.js) - Interactive browser for cookie capture and validation
+- **Sidecar Client** (`sidecar_client.rs`) - Rust orchestrator for sidecar lifecycle
+- **Cookie Capture** - Interactive Google Flow login with stealth applied
+- **Anti-detect** - puppeteer-extra-plugin-stealth with custom fingerprint overrides
+- **Proxy Manager** (`proxy.rs`) - Dynamic API-based proxy rotation (KiotProxy, ProxyXoay)
+- **Fingerprinting** - Deterministic per-account profiles (WebGL, Canvas, UA, screen)
 
 ### 4. Data Models
 
@@ -124,9 +133,15 @@ commands::
 Account {
     id: String,
     email: String,
-    oauth_token: String,           // Encrypted
-    api_key: Option<String>,       // Encrypted
-    is_active: bool,
+    display_name: Option<String>,
+    status: AccountStatus,
+    gemini_api_key: Option<String>,      // Encrypted
+    cookies: Option<String>,              // Encrypted JSON blob
+    cookie_status: CookieStatus,         // Valid | Expired | Unknown
+    cookie_expires_at: Option<String>,
+    fingerprint_seed: String,            // UUID for deterministic fingerprint
+    last_validated: Option<DateTime>,
+    last_used: Option<DateTime>,
     created_at: DateTime,
 }
 
@@ -241,27 +256,69 @@ Update Job Metadata
 Complete / Error Handling
 ```
 
-### Browser Automation Pipeline
+### Puppeteer Sidecar Cookie Capture Pipeline
 
 ```
-[Launch Capture Command]
+[Capture Cookies Command]
     ↓
-Initialize Browser with CDP
+SidecarClient::spawn(puppeteer-sidecar binary)
     ↓
-Apply Anti-detect Profile
+Send JSON: { "type": "launch", "headless": false, "fingerprint": {...} }
     ↓
-Apply Proxy Rotation
+Sidecar: Launch interactive browser with stealth plugin
     ↓
-Navigate to Target URL
+Send JSON: { "type": "capture-cookies", "url": "https://labs.google/fx/vi/tools/flow" }
     ↓
-[Screenshot Command] / [Execute Script]
+Sidecar: Navigate to Google Flow, user logs in
     ↓
-Return Data / Error
+Sidecar: Detect login success, extract cookies via page.cookies()
     ↓
-Close Browser Session
+Sidecar: Send JSON: { "success": true, "cookies": [...] }
+    ↓
+Backend: Decrypt cookies, store encrypted in DB
+    ↓
+Frontend: Update account UI with cookie status badge
+    ↓
+Send JSON: { "type": "close" }
+    ↓
+Sidecar: Gracefully shutdown, clean process
+```
+
+**Fingerprint Application:**
+- Fingerprint seed (UUID) per account
+- Deterministic PRNG generates consistent profile (same account = same fingerprint)
+- WebGL, Canvas, UA, screen overrides applied via `page.evaluateOnNewDocument()`
+- Stealth plugin handles navigation.webdriver, chrome detection, etc.
+
+### Proxy Rotation with TTL Management
+
+```
+[Video Generation Start]
+    ↓
+ProxyManager::get_proxy()
+    ↓
+Check if active proxy exists AND not expired
+    ↓
+Yes: Return cached proxy
+    ↓
+No: Fetch new proxy from API
+    ↓
+KiotProxy or ProxyXoay API call (configurable)
+    ↓
+Parse response: ip, port, username, password, ttl
+    ↓
+Health check: TCP connect to proxy host:port (5s timeout)
+    ↓
+Store ActiveProxy { config, acquired_at, ttl_secs }
+    ↓
+Return to browser/sidecar for request routing
+    ↓
+On next call: Check expiry, auto-fetch if needed
 ```
 
 ## Key Features by Phase
+
+### MVP Phases (v0.1-0.10)
 
 | Phase | Feature | Status | Key Components |
 |-------|---------|--------|-----------------|
@@ -275,6 +332,16 @@ Close Browser Session
 | 8 | Batch Processing | Complete | job_dispatcher, batch_manager |
 | 9 | Browser Automation | Complete | browser_manager, proxy pool |
 | 10 | Testing & CI/CD | Complete | 25 unit tests, GH Actions |
+
+### SuperVeo Refactor Phases (v0.11-0.15)
+
+| Phase | Feature | Status | Key Components |
+|-------|---------|--------|-----------------|
+| 11 | Puppeteer Sidecar + Cookie Auth | Complete | sidecar_client, cookies, stealth-config |
+| 12 | VEO3 Multi-Mode Generation | Complete | VideoGenerationType, image-upload, gemini T2V/I2V/Clone |
+| 13 | Enhanced Anti-Detect | Complete | fingerprint-generator, stealth plugin, UA rotation |
+| 14 | Rotating Proxy APIs | Complete | proxy_api_client, ProxyManager, TTL tracking |
+| 15 | Account Management Overhaul | Complete | account_manager, dual credentials, multi-account rotation |
 
 ## Security & Encryption
 
@@ -320,11 +387,36 @@ Close Browser Session
 - **Distribution:** GitHub Actions release workflow
 - **Updates:** Managed via Tauri's built-in update system
 
-## Future Enhancements
+## Current Implementation Status (v0.15.0)
 
-- Multi-language subtitle support
-- Batch export formats (MP4, WebM, HLS)
-- Advanced video editing UI
-- Real-time collaboration
-- Mobile app (React Native)
-- Cloud backend synchronization
+### Architecture Strengths
+- **Modular Services:** Decoupled Rust services for each API/tool (Gemini, Drive, FFmpeg, etc.)
+- **Type-Safe IPC:** All Tauri commands are Rust-defined with TypeScript bindings
+- **Encrypted Storage:** AES-256-GCM for credentials at rest
+- **Async Processing:** Tokio runtime for non-blocking operations
+- **Sidecar Pattern:** Puppeteer sidecar for browser automation avoids main app blocking
+- **Deterministic Fingerprinting:** Per-account consistent profiles for anti-detection
+
+### Known Limitations (v0.15.0)
+- Desktop only (Windows, macOS, Linux AppImage) — no mobile planned
+- Single-device operation — no cloud sync yet
+- Browser automation tested primarily on Windows
+- Whisper.cpp binary size ~1GB affects distribution
+- Google 2FA may require manual intervention during cookie capture
+- Limited error messages in UI (affects user debugging)
+
+## Planned Future Enhancements
+
+### Phase 16-20: Post-SuperVeo Features
+- Performance optimization and batch processing improvements
+- Advanced video editing with timeline UI
+- Multi-language subtitle support with translation
+- Batch export to multiple platforms (YouTube, TikTok, Instagram)
+- AI prompt optimization and template library
+
+### Phase 21-24: Enterprise & Ecosystem
+- Cloud synchronization across devices
+- Team collaboration with roles and permissions
+- Advanced analytics and reporting dashboard
+- Enterprise features (SSO, audit logging, rate limiting)
+- Plugin and extension system for community contributions

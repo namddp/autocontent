@@ -3,6 +3,190 @@
 **Format:** Semantic Versioning (0.PHASE.BUILD)
 **Last Updated:** March 19, 2026
 
+## Version 0.15.0 - SuperVeo Architecture Refactor (March 19, 2026)
+
+All 5 SuperVeo integration phases complete. Major architectural improvements: Puppeteer sidecar cookie authentication, multi-mode video generation, enhanced anti-detection, rotating proxy APIs, and dual-credential account management.
+
+### Phase 15: Account Management Overhaul (Complete)
+
+**Released:** March 19, 2026
+
+#### Features Added
+- Dual-credential model: Gemini API key + Google Flow cookies per account
+- Cookie status tracking (valid/expired/unknown)
+- Per-account device fingerprint persistence
+- Multi-account rotation in batch processing
+- Automatic account switching on cookie expiry
+- Account UI with cookie status badges
+
+#### Commands
+- `add_account` - Create new account with fingerprint seed
+- `capture_account_cookies` - Trigger sidecar cookie capture
+- `validate_account_cookies` - Check cookie freshness
+- `set_account_api_key` - Store Gemini API key
+- `get_next_valid_account` - Batch rotation logic
+
+#### Breaking Changes
+- Account model expanded with cookie fields (additive migration, backward compatible)
+- Batch processing now requires at least one account with valid credentials
+
+#### Known Issues
+None critical
+
+---
+
+### Phase 14: Rotating Proxy API Integration (Complete)
+
+**Released:** March 19, 2026
+
+#### Features Added
+- Dynamic proxy acquisition from KiotProxy and ProxyXoay APIs
+- ProxyManager with TTL tracking and auto-rotation
+- Health check validation (TCP connect test)
+- Per-provider configuration (API keys, priority)
+- Fallback to direct connection if proxy unavailable
+
+#### Commands
+- `test_proxy` - Validate proxy connectivity
+- `get_proxy_status` - Get current proxy info and TTL
+
+#### Architecture Changes
+- Replaced static ProxyPool with dynamic ProxyManager
+- TTL expiry automatic triggers new proxy fetch
+- Health check prevents dead proxy usage
+- Settings UI for easy provider switching
+
+#### Performance
+- Proxy acquisition < 3s per request
+- TTL caching prevents excessive API calls
+- Health check timeout: 5s
+
+#### Breaking Changes
+None (ProxyPool maintained for backward compatibility)
+
+#### Known Issues
+None critical
+
+---
+
+### Phase 13: Enhanced Anti-Detect & Fingerprinting (Complete)
+
+**Released:** March 19, 2026
+
+#### Features Added
+- Comprehensive fingerprint generation with deterministic PRNG
+- WebGL vendor/renderer spoofing
+- Canvas noise injection
+- User-Agent rotation with realistic Chrome profiles
+- Per-account consistent fingerprint across sessions
+- Stealth plugin integration in Puppeteer sidecar
+
+#### Features
+- puppeteer-extra-plugin-stealth applied to all browser instances
+- Deterministic fingerprint from account seed (no per-request randomization)
+- 10+ detection vectors covered by stealth plugin
+- Custom overrides for WebGL, Canvas, Navigator properties
+
+#### Performance
+- Fingerprint generation negligible (PRNG seed lookup)
+- Page overrides applied once per page load
+- No detectable automation signals
+
+#### Breaking Changes
+None
+
+#### Known Issues
+- Some advanced bot detection may require additional custom evasion
+- Fingerprint pool limited to realistic OS+Chrome combinations
+
+---
+
+### Phase 12: VEO3 Multi-Mode Video Generation (Complete)
+
+**Released:** March 19, 2026
+
+#### Features Added
+- 3 video generation modes:
+  - Text-to-Video (T2V): prompt → video (existing, renamed)
+  - Image-to-Video (I2V): image + prompt → video
+  - Clone Video: start image + end image → video
+- Image upload with preview
+- Drag-drop zone UI component
+- Image validation (format, size < 20MB)
+- Base64 encoding in Rust backend
+
+#### Commands
+- `veo3_generate_video` - Now accepts generation type + optional image paths
+
+#### New Models
+- `VideoGenerationType` enum (TextToVideo, ImageToVideo, CloneVideo)
+- `GenerationConfig` updated with type field
+
+#### Breaking Changes
+None (text-to-video remains default, backward compatible)
+
+#### Performance
+- Image upload < 1s for typical files
+- Base64 encoding in backend (not frontend)
+
+#### Known Issues
+- VEO 3.1 variants require specific API tier (error message on unavailability)
+
+---
+
+### Phase 11: Puppeteer Sidecar + Cookie Auth (Complete)
+
+**Released:** March 19, 2026
+
+#### Features Added
+- Node.js Puppeteer sidecar for interactive browser automation
+- stdin/stdout JSON IPC communication
+- Interactive cookie capture from Google Flow
+- Cookie encryption and secure storage
+- Cookie validation with freshness checking
+- Sidecar binary bundled via `pkg` (Windows, macOS, Linux)
+- Tauri `shell:allow-execute` and `shell:allow-spawn` capabilities
+
+#### Deliverables
+- `puppeteer-sidecar/src/index.js` - IPC entry point
+- `puppeteer-sidecar/src/cookie-capture.js` - Interactive login flow
+- `src-tauri/src/services/sidecar_client.rs` - Rust orchestrator
+- `src-tauri/src/commands/cookies.rs` - Tauri command handlers
+- `src/components/accounts/cookie-capture-dialog.tsx` - UI flow
+
+#### IPC Protocol
+```json
+{ "type": "launch", "headless": false } -> { "success": true, "pid": 1234 }
+{ "type": "capture-cookies", "url": "..." } -> { "success": true, "cookies": [...] }
+{ "type": "validate-cookies", "cookies": [...] } -> { "success": true, "valid": true }
+{ "type": "close" } -> { "success": true }
+```
+
+#### Architecture
+- Sidecar spawned on first cookie capture
+- Graceful shutdown on app close
+- Separate process avoids main app blocking
+- Stdin/stdout avoids port conflicts
+
+#### Performance
+- Sidecar startup: < 5s
+- Cookie capture: 30-60s (user interaction time)
+- Cookie validation: < 10s
+
+#### Security
+- Cookies encrypted at rest (AES-256-GCM)
+- No credential logging
+- Sidecar process sandboxed
+
+#### Breaking Changes
+None (replaces chromiumoxide, same interfaces)
+
+#### Known Issues
+- Google 2FA may trigger during interactive login (user handles manually)
+- Bundled Chromium adds ~150MB to binary size
+
+---
+
 ## Version 0.10.0 - MVP Complete (March 19, 2026)
 
 All 10 development phases complete. Project transitions to maintenance and post-MVP roadmap.

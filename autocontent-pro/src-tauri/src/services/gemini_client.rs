@@ -5,6 +5,7 @@ use std::time::Duration;
 use tokio::time::sleep;
 
 use crate::models::video_job::*;
+use crate::services::image_upload_handler;
 
 const GEMINI_BASE_URL: &str = "https://generativelanguage.googleapis.com/v1beta";
 const POLL_INTERVAL: Duration = Duration::from_secs(3);
@@ -26,21 +27,22 @@ impl GeminiClient {
         Ok(Self { client, api_key })
     }
 
+    /// Build the generate URL for a given model
+    fn generate_url(config: &GenerationConfig) -> String {
+        let model = match config.mode {
+            GenerationMode::Fast => "veo-3.1-generate-fast",
+            GenerationMode::Standard => "veo-3.1-generate",
+        };
+        format!("{}/models/{}:generateContent", GEMINI_BASE_URL, model)
+    }
+
     /// Submit video generation request, returns operation name
     pub async fn submit_generation(
         &self,
         prompt: &str,
         config: &GenerationConfig,
     ) -> Result<String> {
-        let model = match config.mode {
-            GenerationMode::Fast => "veo-3.1-generate-fast",
-            GenerationMode::Standard => "veo-3.1-generate",
-        };
-
-        let url = format!(
-            "{}/models/{}:generateContent",
-            GEMINI_BASE_URL, model
-        );
+        let url = Self::generate_url(config);
 
         let body = serde_json::json!({
             "contents": [{
@@ -70,6 +72,116 @@ impl GeminiClient {
             .json()
             .await
             .context("Failed to parse generation response")?;
+
+        Ok(result.name)
+    }
+
+    /// Submit image-to-video generation (single image + prompt)
+    pub async fn submit_image_to_video(
+        &self,
+        prompt: &str,
+        image: &InlineImageData,
+        config: &GenerationConfig,
+    ) -> Result<String> {
+        let url = Self::generate_url(config);
+
+        let body = serde_json::json!({
+            "contents": [{
+                "parts": [
+                    {
+                        "inlineData": {
+                            "mimeType": image.mime_type,
+                            "data": image.base64_data,
+                        }
+                    },
+                    { "text": prompt }
+                ]
+            }],
+            "generationConfig": {
+                "responseModalities": ["video"],
+                "videoDuration": config.duration,
+            }
+        });
+
+        let response = self
+            .client
+            .post(&url)
+            .header("x-goog-api-key", &self.api_key)
+            .json(&body)
+            .send()
+            .await
+            .context("Failed to send I2V generation request")?;
+
+        if !response.status().is_success() {
+            let error_text = response.text().await.unwrap_or_default();
+            bail!("Gemini I2V API error: {}", error_text);
+        }
+
+        let result: GeminiGenerateResponse = response
+            .json()
+            .await
+            .context("Failed to parse I2V response")?;
+
+        Ok(result.name)
+    }
+
+    /// Submit clone video generation (first frame + last frame + optional prompt)
+    pub async fn submit_clone_video(
+        &self,
+        prompt: Option<&str>,
+        first_image: &InlineImageData,
+        last_image: &InlineImageData,
+        config: &GenerationConfig,
+    ) -> Result<String> {
+        let url = Self::generate_url(config);
+
+        let mut parts = vec![
+            serde_json::json!({
+                "inlineData": {
+                    "mimeType": first_image.mime_type,
+                    "data": first_image.base64_data,
+                }
+            }),
+            serde_json::json!({
+                "inlineData": {
+                    "mimeType": last_image.mime_type,
+                    "data": last_image.base64_data,
+                }
+            }),
+        ];
+
+        if let Some(text) = prompt {
+            if !text.is_empty() {
+                parts.push(serde_json::json!({ "text": text }));
+            }
+        }
+
+        let body = serde_json::json!({
+            "contents": [{ "parts": parts }],
+            "generationConfig": {
+                "responseModalities": ["video"],
+                "videoDuration": config.duration,
+            }
+        });
+
+        let response = self
+            .client
+            .post(&url)
+            .header("x-goog-api-key", &self.api_key)
+            .json(&body)
+            .send()
+            .await
+            .context("Failed to send clone generation request")?;
+
+        if !response.status().is_success() {
+            let error_text = response.text().await.unwrap_or_default();
+            bail!("Gemini clone API error: {}", error_text);
+        }
+
+        let result: GeminiGenerateResponse = response
+            .json()
+            .await
+            .context("Failed to parse clone response")?;
 
         Ok(result.name)
     }

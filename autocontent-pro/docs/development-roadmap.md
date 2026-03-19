@@ -1,8 +1,8 @@
 # Development Roadmap - AutoContent Pro
 
-**Version:** 0.10.0 MVP Complete
+**Version:** 0.15.0 SuperVeo Refactor Complete
 **Last Updated:** March 19, 2026
-**Status:** All 10 phases complete. Transition to post-MVP roadmap.
+**Status:** All 15 phases complete (10 MVP + 5 SuperVeo). Ready for advanced features.
 
 ## MVP Completion Summary
 
@@ -18,16 +18,159 @@
 | 8 | Batch Processing | Mar 17 | Mar 17 | ✅ Complete |
 | 9 | Browser Automation | Mar 18 | Mar 18 | ✅ Complete |
 | 10 | Testing & CI/CD | Mar 19 | Mar 19 | ✅ Complete |
+| 11 | Puppeteer Sidecar + Cookie Auth | Mar 19 | Mar 19 | ✅ Complete |
+| 12 | VEO3 Multi-Mode Generation | Mar 19 | Mar 19 | ✅ Complete |
+| 13 | Enhanced Anti-Detect | Mar 19 | Mar 19 | ✅ Complete |
+| 14 | Rotating Proxy APIs | Mar 19 | Mar 19 | ✅ Complete |
+| 15 | Account Management Overhaul | Mar 19 | Mar 19 | ✅ Complete |
 
-**MVP Completion Rate:** 100% (10/10 phases)
-**Overall Test Coverage:** 25 unit tests, all passing
+**MVP Completion Rate:** 100% (10/10 phases) - Mar 19
+**SuperVeo Refactor Rate:** 100% (5/5 phases) - Mar 19
+**Overall Test Coverage:** 25+ unit tests, all passing
+**Total Compilation:** Clean, zero TypeScript errors
 **Release Ready:** Yes (GitHub Actions CI/CD configured)
 
 ---
 
-## Post-MVP Roadmap (v1.x+)
+## SuperVeo Integration (v0.11-0.15)
 
-### Phase 11: Stability & Performance Optimization (Planned Q2 2026)
+Phases 11-15 implement SuperVeo-style features for cookie-based authentication, multi-mode video generation, enhanced anti-detection, and rotating proxy APIs.
+
+### Phase 11: Puppeteer Sidecar + Cookie Auth (Complete - Mar 19)
+
+**Objective:** Replace chromiumoxide with Node.js Puppeteer sidecar for interactive Google Flow login.
+
+#### Deliverables
+- Puppeteer sidecar bundled via `pkg` for all platforms
+- stdin/stdout JSON IPC communication layer
+- Interactive cookie capture with stealth plugin applied
+- Cookie encryption + secure storage
+- Tauri `shell` plugin integration with `externalBin` config
+
+#### Key Components
+- `puppeteer-sidecar/src/index.js` — IPC entry point
+- `puppeteer-sidecar/src/cookie-capture.js` — Interactive browser login
+- `src-tauri/src/services/sidecar_client.rs` — Rust sidecar orchestrator
+- `src-tauri/src/commands/cookies.rs` — Tauri cookie capture/validation commands
+- `src/components/accounts/cookie-capture-dialog.tsx` — UI for login flow
+
+#### Status: COMPLETE ✅
+- Sidecar project structure created
+- Cookie capture flow implemented and tested
+- Cookie validation working with expiry detection
+- Binaries built for Windows, macOS, Linux
+- Tauri integration complete
+
+---
+
+### Phase 12: VEO3 Multi-Mode Generation (Complete - Mar 19)
+
+**Objective:** Extend VEO3 from text-only to 3 generation modes (T2V, I2V, Clone).
+
+#### Deliverables
+- VideoGenerationType enum supporting 3 modes
+- Image upload handler with base64 encoding
+- Extended Gemini API client methods for I2V and Clone modes
+- Image preview components with drag-drop support
+- Mode selector UI with conditional image uploads
+
+#### Key Components
+- `src-tauri/src/services/image-upload-handler.rs` — File reading + validation
+- `src-tauri/src/models/video_job.rs` — VideoGenerationType enum
+- `src/components/video/image-upload-dropzone.tsx` — Image picker UI
+- `src/components/video/generation-mode-selector.tsx` — Mode tabs
+- Extended `gemini_client.rs` with `submit_image_to_video()` and `submit_clone_video()`
+
+#### Status: COMPLETE ✅
+- All 3 generation modes functional (T2V, I2V, Clone)
+- Image validation < 20MB per file
+- JPEG, PNG, WebP formats supported
+- Base64 encoding in Rust (not frontend)
+- UI shows active mode with image previews
+
+---
+
+### Phase 13: Enhanced Anti-Detect & Fingerprinting (Complete - Mar 19)
+
+**Objective:** Implement comprehensive fingerprinting with stealth plugin in Puppeteer sidecar.
+
+#### Deliverables
+- Fingerprint generator with deterministic PRNG from seed
+- Fingerprint injector for page context (WebGL, Canvas, UA, screen)
+- puppeteer-extra stealth plugin integrated with custom overrides
+- Per-account fingerprint persistence
+- User-Agent rotation with realistic Chrome profiles
+
+#### Key Components
+- `puppeteer-sidecar/src/fingerprint-generator.js` — Deterministic fingerprint generation
+- `puppeteer-sidecar/src/fingerprint-injector.js` — Page-level overrides
+- `src-tauri/src/models/account.rs` — fingerprint_seed field added
+- `src-tauri/src/services/sidecar_client.rs` — Fingerprint config in launch IPC
+
+#### Status: COMPLETE ✅
+- Stealth plugin active on all sidecar browser instances
+- Same account always presents identical fingerprint
+- Different accounts show distinct fingerprints
+- No `navigator.webdriver` detectable
+- WebGL/Canvas spoofing implemented
+
+---
+
+### Phase 14: Rotating Proxy API Integration (Complete - Mar 19)
+
+**Objective:** Replace static proxy list with dynamic API-based rotation (KiotProxy + ProxyXoay).
+
+#### Deliverables
+- ProxyManager with TTL tracking and auto-rotation
+- KiotProxy REST API client integration
+- ProxyXoay fallback provider
+- Health check (TCP connect validation)
+- Proxy settings UI with provider selection
+
+#### Key Components
+- `src-tauri/src/services/proxy_api_client.rs` — API clients
+- `src-tauri/src/services/proxy.rs` — ProxyManager with TTL logic
+- `src-tauri/src/models/browser.rs` — ProxyProvider enum, ActiveProxy struct
+- `src/components/settings/proxy-settings-panel.tsx` — Settings UI
+
+#### Status: COMPLETE ✅
+- Proxies fetched on-demand from APIs
+- TTL tracking with auto-expiry
+- Health check before use (5s timeout)
+- Settings allow easy provider switching
+- Fallback to direct if no proxy configured
+
+---
+
+### Phase 15: Account Management Overhaul (Complete - Mar 19)
+
+**Objective:** Implement dual-credential model (Gemini API key + Google Flow cookies) with fingerprinting.
+
+#### Deliverables
+- Account model updated with cookie storage + fingerprint_seed
+- Cookie status tracking (valid/expired/unknown)
+- Multi-account rotation in batch processing
+- Account card UI with cookie status badges
+- Cookie validation commands with auto-refresh prompts
+
+#### Key Components
+- `src-tauri/src/services/account_manager.rs` — Account lifecycle management
+- `src-tauri/src/models/account.rs` — CookieStatus enum, fingerprint_seed field
+- `src/components/accounts/account-card-with-cookie-status.tsx` — Status UI
+- Batch processor multi-account round-robin rotation
+
+#### Status: COMPLETE ✅
+- Accounts store both API key and cookies
+- Cookie status accurately reflects freshness
+- Batch processing rotates through valid accounts
+- Expired accounts skipped with notification
+- All credentials encrypted at rest (AES-256-GCM)
+
+---
+
+## Post-SuperVeo Roadmap (v1.x+)
+
+### Phase 16: Stability & Performance Optimization (Planned Q2 2026)
 
 **Objective:** Production hardening, performance tuning, edge case handling
 
@@ -58,7 +201,7 @@
 
 ---
 
-### Phase 12: Advanced Video Editing (Planned Q2 2026)
+### Phase 17: Advanced Video Editing (Planned Q2 2026)
 
 **Objective:** In-app video composition and editing capabilities
 
@@ -100,7 +243,7 @@
 
 ---
 
-### Phase 13: Multi-Language Subtitle Support (Planned Q3 2026)
+### Phase 18: Multi-Language Subtitle Support (Planned Q3 2026)
 
 **Objective:** Generate and manage subtitles in multiple languages
 
@@ -137,7 +280,7 @@
 
 ---
 
-### Phase 14: Batch Export & Distribution (Planned Q3 2026)
+### Phase 19: Batch Export & Distribution (Planned Q3 2026)
 
 **Objective:** Export batches in multiple formats and platforms
 
@@ -182,7 +325,7 @@
 
 ---
 
-### Phase 15: AI Prompt Enhancement (Planned Q4 2026)
+### Phase 20: AI Prompt Enhancement (Planned Q4 2026)
 
 **Objective:** Smart prompt suggestion and optimization
 
@@ -219,7 +362,7 @@
 
 ---
 
-### Phase 16: Cloud Sync & Collaboration (Planned Q4 2026)
+### Phase 21: Cloud Sync & Collaboration (Planned Q4 2026)
 
 **Objective:** Multi-device sync and team collaboration
 
@@ -257,7 +400,7 @@
 
 ---
 
-### Phase 17: Advanced Analytics & Reporting (Planned 2027)
+### Phase 22: Advanced Analytics & Reporting (Planned 2027)
 
 **Objective:** Insights into video performance and usage patterns
 
@@ -297,7 +440,7 @@
 
 ---
 
-### Phase 18: Enterprise Features (Planned 2027)
+### Phase 23: Enterprise Features (Planned 2027)
 
 **Objective:** Organization and security enhancements
 
@@ -335,7 +478,7 @@
 
 ---
 
-### Phase 19: Plugin & Extension System (Planned 2027)
+### Phase 24: Plugin & Extension System (Planned 2027)
 
 **Objective:** Extensibility for custom workflows and integrations
 
@@ -375,25 +518,34 @@
 ## Release Timeline
 
 ```
-2026 Q1: MVP Complete (v0.10.0) ✅
+2026 Q1: MVP Complete (v0.10.0) ✅ [Mar 19]
+  - Phases 1-10: Core platform, video generation, batch processing
+
+2026 Q1: SuperVeo Refactor (v0.15.0) ✅ [Mar 19]
+  - Phase 11: Puppeteer Sidecar + Cookie Auth
+  - Phase 12: VEO3 Multi-Mode Generation (T2V/I2V/Clone)
+  - Phase 13: Enhanced Anti-Detect & Fingerprinting
+  - Phase 14: Rotating Proxy API Integration (KiotProxy/ProxyXoay)
+  - Phase 15: Account Management Overhaul (Dual Credentials)
+
 2026 Q2: Stability & Advanced Features (v1.0-1.2)
-  - Phase 11: Performance Optimization
-  - Phase 12: Advanced Editing
-  - Phase 13: Multi-Language Subtitles
+  - Phase 16: Performance Optimization
+  - Phase 17: Advanced Video Editing
+  - Phase 18: Multi-Language Subtitles
 
 2026 Q3: Distribution & Enhancement (v1.3-1.5)
-  - Phase 14: Batch Export & Distribution
-  - Phase 15: AI Prompt Optimization
+  - Phase 19: Batch Export & Distribution
+  - Phase 20: AI Prompt Optimization
 
 2026 Q4: Cloud & Collaboration (v2.0)
-  - Phase 16: Cloud Sync & Team Collaboration
+  - Phase 21: Cloud Sync & Team Collaboration
 
 2027 H1: Analytics & Enterprise (v2.1-2.3)
-  - Phase 17: Analytics & Reporting
-  - Phase 18: Enterprise Features
+  - Phase 22: Analytics & Reporting
+  - Phase 23: Enterprise Features
 
 2027 H2: Ecosystem (v3.0+)
-  - Phase 19: Plugin System
+  - Phase 24: Plugin System
 ```
 
 ---

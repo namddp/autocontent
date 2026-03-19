@@ -68,6 +68,11 @@ pub fn run() {
             commands::browser::browser_launch_capture,
             commands::browser::browser_screenshot,
             commands::browser::browser_test_proxy,
+            commands::cookies::cookie_capture,
+            commands::cookies::cookie_validate,
+            commands::cookies::cookie_sidecar_health,
+            commands::proxy::proxy_test_fetch,
+            commands::proxy::proxy_health_check,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

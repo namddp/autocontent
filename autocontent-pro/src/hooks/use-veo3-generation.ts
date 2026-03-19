@@ -15,6 +15,15 @@ interface VideoResult {
   file_size_bytes: number;
 }
 
+interface GenerationConfig {
+  quality: string;
+  duration: number;
+  mode: string;
+  generationType?: string;
+  imagePath?: string | null;
+  imagePathEnd?: string | null;
+}
+
 export function useVeo3Generation() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState<GenerationProgress | null>(null);
@@ -32,8 +41,8 @@ export function useVeo3Generation() {
 
   const generate = async (
     prompt: string,
-    config: { quality: string; duration: number; mode: string },
-    apiKey: string,
+    config: GenerationConfig,
+    apiKey: string
   ) => {
     setIsGenerating(true);
     setError(null);
@@ -46,6 +55,9 @@ export function useVeo3Generation() {
         duration: config.duration,
         mode: config.mode,
         apiKey,
+        generationType: config.generationType || "text_to_video",
+        imagePath: config.imagePath || null,
+        imagePathEnd: config.imagePathEnd || null,
       });
       setResult(videoResult);
     } catch (err) {

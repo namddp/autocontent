@@ -1,5 +1,7 @@
 use crate::models::video_job::*;
 use crate::services::gemini_client::GeminiClient;
+use crate::services::image_upload_handler;
+use std::path::Path;
 use tauri::{command, AppHandle, Emitter, Manager};
 use uuid::Uuid;
 
@@ -10,6 +12,7 @@ struct ProgressPayload {
     message: String,
 }
 
+/// Unified video generation command supporting T2V, I2V, and Clone modes
 #[command]
 pub async fn veo3_generate_video(
     app: AppHandle,
@@ -18,10 +21,20 @@ pub async fn veo3_generate_video(
     duration: u8,
     mode: String,
     api_key: String,
+    generation_type: Option<String>,
+    image_path: Option<String>,
+    image_path_end: Option<String>,
 ) -> Result<VideoResult, String> {
     let job_id = Uuid::new_v4().to_string();
 
+    let gen_type = match generation_type.as_deref() {
+        Some("image_to_video") => VideoGenerationType::ImageToVideo,
+        Some("clone_video") => VideoGenerationType::CloneVideo,
+        _ => VideoGenerationType::TextToVideo,
+    };
+
     let config = GenerationConfig {
+        generation_type: gen_type.clone(),
         quality: match quality.as_str() {
             "hd" => VideoQuality::Hd,
             "4k" => VideoQuality::FourK,
@@ -34,40 +47,85 @@ pub async fn veo3_generate_video(
         },
     };
 
-    // Emit: starting
-    let _ = app.emit(
-        "veo3:progress",
-        ProgressPayload {
-            job_id: job_id.clone(),
-            status: "generating".to_string(),
-            message: "Submitting video generation request...".to_string(),
-        },
-    );
+    let emit_progress = |status: &str, message: &str| {
+        let _ = app.emit(
+            "veo3:progress",
+            ProgressPayload {
+                job_id: job_id.clone(),
+                status: status.to_string(),
+                message: message.to_string(),
+            },
+        );
+    };
+
+    emit_progress("generating", "Submitting video generation request...");
 
     let client = GeminiClient::new(api_key).map_err(|e| e.to_string())?;
 
-    // Step 1: Submit generation
-    let operation_name = client
-        .submit_generation(&prompt, &config)
-        .await
-        .map_err(|e| e.to_string())?;
+    // Submit based on generation type
+    let operation_name = match &config.generation_type {
+        VideoGenerationType::TextToVideo => {
+            client
+                .submit_generation(&prompt, &config)
+                .await
+                .map_err(|e| e.to_string())?
+        }
+        VideoGenerationType::ImageToVideo => {
+            let path = image_path
+                .as_deref()
+                .ok_or("image_path required for Image-to-Video mode")?;
+            let image = image_upload_handler::read_and_encode_image(Path::new(path))
+                .await
+                .map_err(|e| e.to_string())?;
 
-    let _ = app.emit(
-        "veo3:progress",
-        ProgressPayload {
-            job_id: job_id.clone(),
-            status: "generating".to_string(),
-            message: "Generation started. Polling for result...".to_string(),
-        },
-    );
+            emit_progress("generating", "Uploading image and generating video...");
 
-    // Step 2: Poll until done
+            client
+                .submit_image_to_video(&prompt, &image, &config)
+                .await
+                .map_err(|e| e.to_string())?
+        }
+        VideoGenerationType::CloneVideo => {
+            let first_path = image_path
+                .as_deref()
+                .ok_or("image_path (first frame) required for Clone mode")?;
+            let last_path = image_path_end
+                .as_deref()
+                .ok_or("image_path_end (last frame) required for Clone mode")?;
+
+            let first_image =
+                image_upload_handler::read_and_encode_image(Path::new(first_path))
+                    .await
+                    .map_err(|e| e.to_string())?;
+            let last_image =
+                image_upload_handler::read_and_encode_image(Path::new(last_path))
+                    .await
+                    .map_err(|e| e.to_string())?;
+
+            emit_progress("generating", "Uploading frames and generating clone video...");
+
+            let prompt_opt = if prompt.is_empty() {
+                None
+            } else {
+                Some(prompt.as_str())
+            };
+
+            client
+                .submit_clone_video(prompt_opt, &first_image, &last_image, &config)
+                .await
+                .map_err(|e| e.to_string())?
+        }
+    };
+
+    emit_progress("generating", "Generation started. Polling for result...");
+
+    // Poll until done
     let operation = client
         .poll_operation(&operation_name)
         .await
         .map_err(|e| e.to_string())?;
 
-    // Step 3: Extract video URL
+    // Extract video URL
     let video_uri = operation
         .response
         .and_then(|r| {
@@ -79,16 +137,9 @@ pub async fn veo3_generate_video(
         .map(|s| s.video.uri)
         .ok_or("No video in response")?;
 
-    let _ = app.emit(
-        "veo3:progress",
-        ProgressPayload {
-            job_id: job_id.clone(),
-            status: "downloading".to_string(),
-            message: "Downloading generated video...".to_string(),
-        },
-    );
+    emit_progress("downloading", "Downloading generated video...");
 
-    // Step 4: Download video
+    // Download video
     let output_dir = app
         .path()
         .app_data_dir()
@@ -106,14 +157,7 @@ pub async fn veo3_generate_video(
         .map(|m| m.len())
         .unwrap_or(0);
 
-    let _ = app.emit(
-        "veo3:progress",
-        ProgressPayload {
-            job_id: job_id.clone(),
-            status: "completed".to_string(),
-            message: "Video generation completed!".to_string(),
-        },
-    );
+    emit_progress("completed", "Video generation completed!");
 
     Ok(VideoResult {
         job_id,

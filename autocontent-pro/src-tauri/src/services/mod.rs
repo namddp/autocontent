@@ -1,6 +1,7 @@
 pub mod crypto;
 pub mod ffmpeg;
 pub mod gemini_client;
+pub mod image_upload_handler;
 pub mod oauth;
 pub mod upscaler;
 pub mod batch_manager;
@@ -8,4 +9,6 @@ pub mod browser_manager;
 pub mod drive_client;
 pub mod job_dispatcher;
 pub mod proxy;
+pub mod proxy_api_client;
+pub mod sidecar_client;
 pub mod whisper;

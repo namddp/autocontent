@@ -1,6 +1,11 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use crate::models::browser::{ProxyConfig, ProxyPoolConfig, ProxyRotation};
+use crate::models::browser::{
+    ActiveProxy, ProxyConfig, ProxyPoolConfig, ProxyProvider, ProxyRotation,
+};
+use crate::services::proxy_api_client;
+use anyhow::{bail, Result};
+use reqwest::Client;
 
 /// Thread-safe proxy pool with rotation strategies
 pub struct ProxyPool {
@@ -48,6 +53,79 @@ impl ProxyPool {
 
     pub fn count(&self) -> usize {
         self.proxies.len()
+    }
+}
+
+/// Dynamic proxy manager with API-based rotation and TTL tracking
+pub struct ProxyManager {
+    provider: ProxyProvider,
+    api_key: Option<String>,
+    active: Option<ActiveProxy>,
+    client: Client,
+}
+
+impl ProxyManager {
+    pub fn new(provider: ProxyProvider, api_key: Option<String>) -> Self {
+        Self {
+            provider,
+            api_key,
+            active: None,
+            client: Client::new(),
+        }
+    }
+
+    /// Get current proxy, fetching a new one if expired or none active
+    pub async fn get_proxy(&mut self) -> Result<Option<ProxyConfig>> {
+        if matches!(self.provider, ProxyProvider::None) {
+            return Ok(None);
+        }
+
+        // Return cached proxy if still valid
+        if let Some(ref active) = self.active {
+            if !active.is_expired() {
+                return Ok(Some(active.config.clone()));
+            }
+        }
+
+        let api_key = self
+            .api_key
+            .as_deref()
+            .ok_or_else(|| anyhow::anyhow!("Proxy API key not configured"))?;
+
+        // Fetch new proxy from API
+        let (config, ttl) = match self.provider {
+            ProxyProvider::KiotProxy => {
+                proxy_api_client::fetch_kiotproxy(&self.client, api_key).await?
+            }
+            ProxyProvider::ProxyXoay => {
+                proxy_api_client::fetch_proxyxoay(&self.client, api_key).await?
+            }
+            ProxyProvider::None => unreachable!(),
+        };
+
+        // Health check
+        proxy_api_client::health_check_proxy(&config.host, config.port).await?;
+
+        self.active = Some(ActiveProxy {
+            config: config.clone(),
+            acquired_at: chrono::Utc::now(),
+            ttl_secs: ttl,
+        });
+
+        Ok(Some(config))
+    }
+
+    /// Force rotation — invalidate current proxy and fetch new
+    pub async fn rotate(&mut self) -> Result<Option<ProxyConfig>> {
+        self.active = None;
+        self.get_proxy().await
+    }
+
+    /// Get info about currently active proxy
+    pub fn active_info(&self) -> Option<(String, u16, u64)> {
+        self.active.as_ref().map(|a| {
+            (a.config.host.clone(), a.config.port, a.remaining_secs())
+        })
     }
 }
 
