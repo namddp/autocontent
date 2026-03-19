@@ -1,0 +1,11 @@
+D:\vibecoding\autocontent-pro\src-tauri\target\debug\deps\dotenvy-0a818c0506cc4d7d.d: C:\Users\Admin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\dotenvy-0.15.7\src\lib.rs C:\Users\Admin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\dotenvy-0.15.7\src\errors.rs C:\Users\Admin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\dotenvy-0.15.7\src\find.rs C:\Users\Admin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\dotenvy-0.15.7\src\iter.rs C:\Users\Admin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\dotenvy-0.15.7\src\parse.rs
+
+D:\vibecoding\autocontent-pro\src-tauri\target\debug\deps\libdotenvy-0a818c0506cc4d7d.rlib: C:\Users\Admin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\dotenvy-0.15.7\src\lib.rs C:\Users\Admin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\dotenvy-0.15.7\src\errors.rs C:\Users\Admin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\dotenvy-0.15.7\src\find.rs C:\Users\Admin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\dotenvy-0.15.7\src\iter.rs C:\Users\Admin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\dotenvy-0.15.7\src\parse.rs
+
+D:\vibecoding\autocontent-pro\src-tauri\target\debug\deps\libdotenvy-0a818c0506cc4d7d.rmeta: C:\Users\Admin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\dotenvy-0.15.7\src\lib.rs C:\Users\Admin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\dotenvy-0.15.7\src\errors.rs C:\Users\Admin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\dotenvy-0.15.7\src\find.rs C:\Users\Admin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\dotenvy-0.15.7\src\iter.rs C:\Users\Admin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\dotenvy-0.15.7\src\parse.rs
+
+C:\Users\Admin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\dotenvy-0.15.7\src\lib.rs:
+C:\Users\Admin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\dotenvy-0.15.7\src\errors.rs:
+C:\Users\Admin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\dotenvy-0.15.7\src\find.rs:
+C:\Users\Admin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\dotenvy-0.15.7\src\iter.rs:
+C:\Users\Admin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\dotenvy-0.15.7\src\parse.rs:

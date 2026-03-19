@@ -1,0 +1,13 @@
+{
+  "identifier": "default",
+  "description": "Default capabilities for AutoContent Pro",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "store:default",
+    "sql:default",
+    "fs:default",
+    "dialog:default",
+    "notification:default"
+  ]
+}
