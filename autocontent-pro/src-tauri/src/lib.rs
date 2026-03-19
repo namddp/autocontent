@@ -28,12 +28,12 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .setup(move |_app| {
-            // Spawn job dispatcher background task
+            // Spawn job dispatcher background task on Tauri's async runtime
             let dispatcher =
                 services::job_dispatcher::JobDispatcher::new(
                     dispatcher_manager,
                 );
-            tokio::spawn(async move {
+            tauri::async_runtime::spawn(async move {
                 dispatcher.run(batch_rx).await;
             });
             Ok(())

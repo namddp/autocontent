@@ -257,40 +257,7 @@
 
 ---
 
-### Phase 17: Mobile App (React Native) (Planned 2027)
-
-**Objective:** iOS and Android native applications
-
-#### Features
-- **Core Features:**
-  - Video generation on mobile
-  - Batch processing submission
-  - Drive file management
-  - Account switching
-  - Video preview and sharing
-
-- **Mobile-Specific:**
-  - Offline mode (queue locally)
-  - Camera integration for thumbnail capture
-  - Push notifications for job completion
-  - Share extensions for quick batch creation
-  - Deep linking for sharing
-
-#### Technical Stack
-- React Native with Expo
-- Same Rust backend (via network API)
-- SQLite for local data
-- Firebase for notifications
-
-#### Deliverables
-- iOS and Android apps (App Store, Google Play)
-- Mobile API gateway
-- Offline queue system
-- Push notification service
-
----
-
-### Phase 18: Advanced Analytics & Reporting (Planned 2027)
+### Phase 17: Advanced Analytics & Reporting (Planned 2027)
 
 **Objective:** Insights into video performance and usage patterns
 
@@ -330,7 +297,7 @@
 
 ---
 
-### Phase 19: Enterprise Features (Planned 2027)
+### Phase 18: Enterprise Features (Planned 2027)
 
 **Objective:** Organization and security enhancements
 
@@ -368,7 +335,7 @@
 
 ---
 
-### Phase 20: Plugin & Extension System (Planned 2027)
+### Phase 19: Plugin & Extension System (Planned 2027)
 
 **Objective:** Extensibility for custom workflows and integrations
 
@@ -421,13 +388,12 @@
 2026 Q4: Cloud & Collaboration (v2.0)
   - Phase 16: Cloud Sync & Team Collaboration
 
-2027 H1: Mobile & Analytics (v2.1-2.3)
-  - Phase 17: React Native Mobile Apps
-  - Phase 18: Analytics & Reporting
+2027 H1: Analytics & Enterprise (v2.1-2.3)
+  - Phase 17: Analytics & Reporting
+  - Phase 18: Enterprise Features
 
-2027 H2: Enterprise & Ecosystem (v3.0+)
-  - Phase 19: Enterprise Features
-  - Phase 20: Plugin System
+2027 H2: Ecosystem (v3.0+)
+  - Phase 19: Plugin System
 ```
 
 ---
@@ -449,7 +415,7 @@
 - Target: 99% uptime on external API calls
 
 ### v2.0+ (2027+)
-- Multi-platform adoption (Desktop + Mobile)
+- Desktop adoption (Windows + macOS)
 - Team collaboration features
 - Enterprise customer acquisition
 - Plugin ecosystem growth
@@ -459,7 +425,7 @@
 ## Known Limitations & Technical Debt
 
 ### Current Limitations
-- Mobile responsiveness not optimized (desktop-first)
+- Desktop only (Windows + macOS), no mobile planned
 - No cloud synchronization (local device only)
 - Single-device operation
 - Limited video editing capabilities
@@ -507,7 +473,6 @@
 Open issues tracked in GitHub Issues:
 - Advanced subtitle editing
 - Batch export to multiple platforms
-- Mobile app
 - Plugin system
 - Team collaboration
 
