@@ -65,6 +65,9 @@ pub fn run() {
             commands::batch::batch_get_status,
             commands::batch::batch_get_jobs,
             commands::batch::batch_get_all_jobs,
+            commands::browser::browser_launch_capture,
+            commands::browser::browser_screenshot,
+            commands::browser::browser_test_proxy,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

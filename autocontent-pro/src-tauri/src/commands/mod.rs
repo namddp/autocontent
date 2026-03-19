@@ -1,5 +1,6 @@
 pub mod accounts;
 pub mod batch;
+pub mod browser;
 pub mod drive;
 pub mod subtitle;
 pub mod veo3;
