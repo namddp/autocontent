@@ -76,3 +76,67 @@ pub fn random_user_agent() -> String {
         os, chrome
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::browser::ProxyProtocol;
+
+    fn sample_pool(n: usize) -> ProxyPool {
+        let proxies: Vec<ProxyConfig> = (0..n)
+            .map(|i| ProxyConfig {
+                host: format!("proxy{}.example.com", i),
+                port: 8080 + i as u16,
+                username: None,
+                password: None,
+                protocol: ProxyProtocol::Http,
+            })
+            .collect();
+
+        ProxyPool::new(ProxyPoolConfig {
+            proxies,
+            rotation: ProxyRotation::RoundRobin,
+        })
+    }
+
+    #[test]
+    fn test_round_robin() {
+        let pool = sample_pool(3);
+        let p0 = pool.next_proxy().unwrap().host.clone();
+        let p1 = pool.next_proxy().unwrap().host.clone();
+        let p2 = pool.next_proxy().unwrap().host.clone();
+        let p3 = pool.next_proxy().unwrap().host.clone();
+
+        assert_eq!(p0, "proxy0.example.com");
+        assert_eq!(p1, "proxy1.example.com");
+        assert_eq!(p2, "proxy2.example.com");
+        assert_eq!(p3, "proxy0.example.com"); // Wraps around
+    }
+
+    #[test]
+    fn test_empty_pool() {
+        let pool = sample_pool(0);
+        assert!(pool.next_proxy().is_none());
+    }
+
+    #[test]
+    fn test_proxy_for_account() {
+        let pool = sample_pool(3);
+        let p = pool.proxy_for_account(5).unwrap();
+        assert_eq!(p.host, "proxy2.example.com"); // 5 % 3 = 2
+    }
+
+    #[test]
+    fn test_random_user_agent() {
+        let ua = random_user_agent();
+        assert!(ua.contains("Mozilla/5.0"));
+        assert!(ua.contains("Chrome/"));
+        assert!(ua.contains("Safari/537.36"));
+    }
+
+    #[test]
+    fn test_pool_count() {
+        assert_eq!(sample_pool(5).count(), 5);
+        assert_eq!(sample_pool(0).count(), 0);
+    }
+}

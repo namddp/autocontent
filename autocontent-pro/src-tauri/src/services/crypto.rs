@@ -69,3 +69,54 @@ pub fn get_device_master_key() -> String {
         .to_string();
     format!("autocontent-{}-master", hostname)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_encrypt_decrypt_roundtrip() {
+        let plaintext = "my-secret-token-12345";
+        let master_key = "test-master-key";
+        let encrypted = encrypt(plaintext, master_key).unwrap();
+        assert_ne!(encrypted, plaintext);
+        let decrypted = decrypt(&encrypted, master_key).unwrap();
+        assert_eq!(decrypted, plaintext);
+    }
+
+    #[test]
+    fn test_different_keys_fail() {
+        let encrypted = encrypt("secret", "key1").unwrap();
+        let result = decrypt(&encrypted, "key2");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_empty_string() {
+        let encrypted = encrypt("", "key").unwrap();
+        let decrypted = decrypt(&encrypted, "key").unwrap();
+        assert_eq!(decrypted, "");
+    }
+
+    #[test]
+    fn test_unicode_content() {
+        let plaintext = "Xin chào! 你好 こんにちは";
+        let encrypted = encrypt(plaintext, "key").unwrap();
+        let decrypted = decrypt(&encrypted, "key").unwrap();
+        assert_eq!(decrypted, plaintext);
+    }
+
+    #[test]
+    fn test_derive_key_deterministic() {
+        let key1 = derive_key("test");
+        let key2 = derive_key("test");
+        assert_eq!(key1, key2);
+    }
+
+    #[test]
+    fn test_derive_key_different_inputs() {
+        let key1 = derive_key("key1");
+        let key2 = derive_key("key2");
+        assert_ne!(key1, key2);
+    }
+}

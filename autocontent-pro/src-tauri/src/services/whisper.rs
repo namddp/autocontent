@@ -233,6 +233,7 @@ fn parse_timestamp(ts: &str) -> Option<u64> {
 }
 
 /// Extract detected language from whisper stderr output
+#[allow(dead_code)]
 fn extract_detected_language(stderr: &str) -> Option<String> {
     // whisper.cpp logs: "auto-detected language: en (p = 0.97)"
     for line in stderr.lines() {
@@ -247,4 +248,91 @@ fn extract_detected_language(stderr: &str) -> Option<String> {
         }
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_format_srt_timestamp() {
+        assert_eq!(format_srt_timestamp(0), "00:00:00,000");
+        assert_eq!(format_srt_timestamp(1500), "00:00:01,500");
+        assert_eq!(format_srt_timestamp(65000), "00:01:05,000");
+        assert_eq!(format_srt_timestamp(3661500), "01:01:01,500");
+    }
+
+    #[test]
+    fn test_parse_srt_timestamps() {
+        let (start, end) =
+            parse_srt_timestamps("00:00:01,000 --> 00:00:03,500").unwrap();
+        assert_eq!(start, 1000);
+        assert_eq!(end, 3500);
+    }
+
+    #[test]
+    fn test_parse_srt_timestamps_invalid() {
+        assert!(parse_srt_timestamps("invalid").is_none());
+        assert!(parse_srt_timestamps("").is_none());
+    }
+
+    #[test]
+    fn test_parse_srt() {
+        let srt = "1\n00:00:00,000 --> 00:00:02,000\nHello world\n\n2\n00:00:02,500 --> 00:00:05,000\nSecond line\n\n";
+        let segments = parse_srt(srt);
+        assert_eq!(segments.len(), 2);
+        assert_eq!(segments[0].text, "Hello world");
+        assert_eq!(segments[0].start_ms, 0);
+        assert_eq!(segments[0].end_ms, 2000);
+        assert_eq!(segments[1].text, "Second line");
+        assert_eq!(segments[1].start_ms, 2500);
+    }
+
+    #[test]
+    fn test_parse_srt_empty_text_skipped() {
+        let srt = "1\n00:00:00,000 --> 00:00:02,000\n\n\n2\n00:00:02,500 --> 00:00:05,000\nHello\n\n";
+        let segments = parse_srt(srt);
+        assert_eq!(segments.len(), 1);
+        assert_eq!(segments[0].text, "Hello");
+    }
+
+    #[test]
+    fn test_write_srt() {
+        let segments = vec![
+            SubtitleSegment {
+                index: 1,
+                start_ms: 0,
+                end_ms: 2000,
+                text: "Hello world".to_string(),
+            },
+            SubtitleSegment {
+                index: 2,
+                start_ms: 2500,
+                end_ms: 5000,
+                text: "Second line".to_string(),
+            },
+        ];
+
+        let temp = tempfile::NamedTempFile::new().unwrap();
+        let path = temp.path().to_path_buf();
+        WhisperService::write_srt(&segments, &path).unwrap();
+
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert!(content.contains("1\n00:00:00,000 --> 00:00:02,000\nHello world"));
+        assert!(content.contains("2\n00:00:02,500 --> 00:00:05,000\nSecond line"));
+    }
+
+    #[test]
+    fn test_extract_detected_language() {
+        let stderr = "whisper_init: loaded model\nauto-detected language: en (p = 0.97)\n";
+        assert_eq!(
+            extract_detected_language(stderr),
+            Some("en".to_string())
+        );
+    }
+
+    #[test]
+    fn test_extract_detected_language_none() {
+        assert_eq!(extract_detected_language("no language info"), None);
+    }
 }

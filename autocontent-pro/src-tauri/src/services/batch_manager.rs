@@ -249,3 +249,107 @@ impl BatchManager {
         *self.is_paused.read().await
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_config(prompts: Vec<&str>, accounts: Vec<&str>) -> BatchConfig {
+        BatchConfig {
+            prompts: prompts.into_iter().map(String::from).collect(),
+            account_ids: accounts.into_iter().map(String::from).collect(),
+            pipeline: JobPipeline {
+                generate: true,
+                upscale: true,
+                upscale_factor: 4,
+                subtitle: false,
+                upload: false,
+                drive_folder: None,
+            },
+            priority: JobPriority::Normal,
+            veo3_config: VeoConfig {
+                quality: "standard".into(),
+                duration: 8,
+                mode: "standard".into(),
+            },
+        }
+    }
+
+    #[tokio::test]
+    async fn test_create_batch() {
+        let (manager, _rx) = BatchManager::new();
+        let config = test_config(
+            vec!["prompt 1", "prompt 2", "prompt 3"],
+            vec!["acc1", "acc2"],
+        );
+
+        let batch_id = manager.create_batch(config).await;
+        let jobs = manager.get_batch_jobs(&batch_id).await;
+
+        assert_eq!(jobs.len(), 3);
+        assert_eq!(jobs[0].account_id, "acc1");
+        assert_eq!(jobs[1].account_id, "acc2");
+        assert_eq!(jobs[2].account_id, "acc1"); // Round-robin
+    }
+
+    #[tokio::test]
+    async fn test_create_batch_no_accounts() {
+        let (manager, _rx) = BatchManager::new();
+        let config = test_config(vec!["prompt 1"], vec![]);
+
+        let batch_id = manager.create_batch(config).await;
+        let jobs = manager.get_batch_jobs(&batch_id).await;
+
+        assert_eq!(jobs.len(), 1);
+        assert_eq!(jobs[0].account_id, "default");
+    }
+
+    #[tokio::test]
+    async fn test_cancel_job() {
+        let (manager, _rx) = BatchManager::new();
+        let config = test_config(vec!["test"], vec!["acc1"]);
+
+        let batch_id = manager.create_batch(config).await;
+        let jobs = manager.get_batch_jobs(&batch_id).await;
+        let job_id = &jobs[0].id;
+
+        manager.cancel_job(job_id).await;
+
+        let updated = manager.get_batch_jobs(&batch_id).await;
+        assert_eq!(updated[0].status, BatchJobStatus::Cancelled);
+    }
+
+    #[tokio::test]
+    async fn test_queue_status_empty() {
+        let (manager, _rx) = BatchManager::new();
+        let status = manager.get_status().await;
+
+        assert_eq!(status.total_jobs, 0);
+        assert!(!status.is_running);
+        assert!(!status.is_paused);
+    }
+
+    #[tokio::test]
+    async fn test_pause_resume() {
+        let (manager, _rx) = BatchManager::new();
+
+        assert!(!manager.is_paused().await);
+        manager.pause().await;
+        assert!(manager.is_paused().await);
+        manager.resume().await;
+        assert!(!manager.is_paused().await);
+    }
+
+    #[tokio::test]
+    async fn test_get_all_jobs() {
+        let (manager, _rx) = BatchManager::new();
+        let config1 = test_config(vec!["p1"], vec!["a1"]);
+        let config2 = test_config(vec!["p2", "p3"], vec!["a2"]);
+
+        manager.create_batch(config1).await;
+        manager.create_batch(config2).await;
+
+        let all = manager.get_all_jobs().await;
+        assert_eq!(all.len(), 3);
+    }
+}
