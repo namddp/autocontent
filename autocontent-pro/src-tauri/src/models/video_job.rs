@@ -60,6 +60,31 @@ pub struct ProcessingProgress {
     pub message: String,
 }
 
+// --- Subtitle / Whisper types ---
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SubtitleSegment {
+    pub index: u32,
+    pub start_ms: u64,
+    pub end_ms: u64,
+    pub text: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum WhisperModel {
+    Tiny,
+    Base,
+    Small,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TranscriptionResult {
+    pub segments: Vec<SubtitleSegment>,
+    pub language: String,
+    pub duration_ms: u64,
+}
+
 // --- Gemini API response types ---
 #[derive(Debug, Deserialize)]
 pub struct GeminiGenerateResponse {

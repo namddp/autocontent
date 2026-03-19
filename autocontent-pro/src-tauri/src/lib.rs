@@ -24,6 +24,9 @@ pub fn run() {
             commands::accounts::get_active_account,
             commands::video::process_video,
             commands::video::get_video_info,
+            commands::subtitle::transcribe_video,
+            commands::subtitle::save_srt,
+            commands::subtitle::burn_subtitles,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

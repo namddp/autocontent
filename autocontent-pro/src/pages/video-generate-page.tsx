@@ -5,6 +5,7 @@ import { GenerationProgress } from "@/components/video/generation-progress";
 import { VideoPreview } from "@/components/video/video-preview";
 import { VideoHistory } from "@/components/video/video-history";
 import { ProcessingPanel } from "@/components/video/processing-panel";
+import { SubtitlePanel } from "@/components/video/subtitle-panel";
 import { useVeo3Generation } from "@/hooks/use-veo3-generation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -85,6 +86,7 @@ export function VideoGeneratePage() {
                 videoPath={result.local_path}
                 jobId={result.job_id}
               />
+              <SubtitlePanel videoPath={result.local_path} />
             </>
           )}
         </div>

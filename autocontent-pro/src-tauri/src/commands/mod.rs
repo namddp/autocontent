@@ -1,4 +1,5 @@
 pub mod accounts;
+pub mod subtitle;
 pub mod veo3;
 pub mod video;
 
