@@ -3,5 +3,7 @@ pub mod ffmpeg;
 pub mod gemini_client;
 pub mod oauth;
 pub mod upscaler;
+pub mod batch_manager;
 pub mod drive_client;
+pub mod job_dispatcher;
 pub mod whisper;
