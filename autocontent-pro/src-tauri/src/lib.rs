@@ -17,6 +17,11 @@ pub fn run() {
             commands::greet,
             commands::veo3::veo3_generate_video,
             commands::veo3::veo3_list_history,
+            commands::accounts::add_account_oauth,
+            commands::accounts::list_accounts,
+            commands::accounts::remove_account,
+            commands::accounts::set_api_key,
+            commands::accounts::get_active_account,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
