@@ -27,15 +27,18 @@ impl BrowserManager {
 
         // Set proxy if configured
         if let Some(ref proxy) = self.config.proxy {
+            let protocol = match proxy.protocol {
+                ProxyProtocol::Http => "http",
+                ProxyProtocol::Https => "https",
+                ProxyProtocol::Socks5 => "socks5",
+            };
+            let auth = match (&proxy.username, &proxy.password) {
+                (Some(user), Some(pass)) => format!("{}:{}@", user, pass),
+                _ => String::new(),
+            };
             let proxy_str = format!(
-                "{}://{}:{}",
-                match proxy.protocol {
-                    ProxyProtocol::Http => "http",
-                    ProxyProtocol::Https => "https",
-                    ProxyProtocol::Socks5 => "socks5",
-                },
-                proxy.host,
-                proxy.port,
+                "{}://{}{}:{}",
+                protocol, auth, proxy.host, proxy.port,
             );
             builder = builder.arg(format!("--proxy-server={}", proxy_str));
         }
