@@ -85,6 +85,28 @@ pub struct TranscriptionResult {
     pub duration_ms: u64,
 }
 
+// --- Google Drive types ---
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DriveFile {
+    pub id: String,
+    pub name: String,
+    pub mime_type: String,
+    pub size: Option<u64>,
+    pub web_view_link: Option<String>,
+    pub created_time: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UploadProgress {
+    pub file_name: String,
+    pub bytes_sent: u64,
+    pub total_bytes: u64,
+    pub percent: f32,
+}
+
 // --- Gemini API response types ---
 #[derive(Debug, Deserialize)]
 pub struct GeminiGenerateResponse {
