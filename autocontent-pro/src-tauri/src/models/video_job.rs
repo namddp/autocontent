@@ -31,7 +31,36 @@ pub struct VideoResult {
     pub file_size_bytes: u64,
 }
 
-// Gemini API response types
+// --- Video Processing Pipeline types ---
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProcessingConfig {
+    pub scale_factor: u8,
+    pub output_quality: OutputQuality,
+    pub preserve_audio: bool,
+    pub output_format: String,
+    pub output_dir: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum OutputQuality {
+    Fast,
+    Medium,
+    High,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProcessingProgress {
+    pub job_id: String,
+    pub stage: String,
+    pub current_frame: u32,
+    pub total_frames: u32,
+    pub percent: f32,
+    pub message: String,
+}
+
+// --- Gemini API response types ---
 #[derive(Debug, Deserialize)]
 pub struct GeminiGenerateResponse {
     pub name: String,

@@ -4,6 +4,7 @@ import { PromptForm } from "@/components/video/prompt-form";
 import { GenerationProgress } from "@/components/video/generation-progress";
 import { VideoPreview } from "@/components/video/video-preview";
 import { VideoHistory } from "@/components/video/video-history";
+import { ProcessingPanel } from "@/components/video/processing-panel";
 import { useVeo3Generation } from "@/hooks/use-veo3-generation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -71,14 +72,20 @@ export function VideoGeneratePage() {
             </Card>
           )}
 
-          {/* Video preview */}
+          {/* Video preview + processing */}
           {result && (
-            <VideoPreview
-              localPath={result.local_path}
-              jobId={result.job_id}
-              durationSecs={result.requested_duration_secs}
-              fileSizeBytes={result.file_size_bytes}
-            />
+            <>
+              <VideoPreview
+                localPath={result.local_path}
+                jobId={result.job_id}
+                durationSecs={result.requested_duration_secs}
+                fileSizeBytes={result.file_size_bytes}
+              />
+              <ProcessingPanel
+                videoPath={result.local_path}
+                jobId={result.job_id}
+              />
+            </>
           )}
         </div>
 

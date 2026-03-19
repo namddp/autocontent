@@ -1,5 +1,6 @@
 pub mod accounts;
 pub mod veo3;
+pub mod video;
 
 #[tauri::command]
 pub fn greet(name: &str) -> String {

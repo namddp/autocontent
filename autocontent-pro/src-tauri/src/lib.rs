@@ -22,6 +22,8 @@ pub fn run() {
             commands::accounts::remove_account,
             commands::accounts::set_api_key,
             commands::accounts::get_active_account,
+            commands::video::process_video,
+            commands::video::get_video_info,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
