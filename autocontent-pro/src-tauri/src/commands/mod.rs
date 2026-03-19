@@ -1,5 +1,4 @@
-/// IPC command handlers for frontend communication
-/// Each submodule will be added as features are implemented
+pub mod veo3;
 
 #[tauri::command]
 pub fn greet(name: &str) -> String {

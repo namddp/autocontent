@@ -16,15 +16,16 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 tauri-plugin-store = "2"
 tauri-plugin-sql = { version = "2", features = ["sqlite"] }
-tauri-plugin-shell = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-notification = "2"
-tauri-plugin-process = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "time", "fs"] }
 anyhow = "1"
 thiserror = "2"
 tracing = "0.1"
 tracing-subscriber = "0.3"
+reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1", features = ["v4", "serde"] }

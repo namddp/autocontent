@@ -1,2 +1,1 @@
-// Business logic services
-// Submodules added per phase: gemini_client, ffmpeg, upscaler, whisper, etc.
+pub mod gemini_client;

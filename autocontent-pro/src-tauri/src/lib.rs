@@ -13,7 +13,11 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
-        .invoke_handler(tauri::generate_handler![commands::greet,])
+        .invoke_handler(tauri::generate_handler![
+            commands::greet,
+            commands::veo3::veo3_generate_video,
+            commands::veo3::veo3_list_history,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
